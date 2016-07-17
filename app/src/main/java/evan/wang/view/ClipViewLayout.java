@@ -1,26 +1,30 @@
 package evan.wang.view;
 
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.TypedArray;
+import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.graphics.PointF;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.media.ExifInterface;
 import android.net.Uri;
+import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.ViewTreeObserver;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 
+import java.io.IOException;
+
 import evan.wang.R;
-import evan.wang.utils.BitmapUtil;
-import evan.wang.utils.FileUtil;
 
 /**
  * 头像上传原图裁剪容器
@@ -128,21 +132,20 @@ public class ClipViewLayout extends RelativeLayout {
             return;
         }
 
-        String path = FileUtil.getRealFilePathFromUri(getContext(), uri);
+        String path = getRealFilePathFromUri(getContext(), uri);
         if (TextUtils.isEmpty(path)) {
             return;
         }
 
         //原图可能很大，现在手机照出来都3000*2000左右了，直接加载可能会OOM
         //这里decode出720*1280 左右的照片
-        Bitmap bitmap = BitmapUtil.decodeSampledBitmap(path, 720, 1280);
+        Bitmap bitmap = decodeSampledBitmap(path, 720, 1280);
         if (bitmap == null) {
             return;
         }
 
         //竖屏拍照的照片，直接使用的话，会旋转90度，下面代码把角度旋转过来
-        int rotation = BitmapUtil.getExifOrientation(path); //查询旋转角度
-        Log.i("android", "image rotation: " + rotation);
+        int rotation = getExifOrientation(path); //查询旋转角度
         Matrix m = new Matrix();
         m.setRotate(rotation);
         bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), m, true);
@@ -186,6 +189,40 @@ public class ClipViewLayout extends RelativeLayout {
         imageView.setImageBitmap(bitmap);
     }
 
+    /**
+     * 查询图片旋转角度
+     *
+     * @param filepath
+     * @return
+     */
+    public static int getExifOrientation(String filepath) {// YOUR MEDIA PATH AS STRING
+        int degree = 0;
+        ExifInterface exif = null;
+        try {
+            exif = new ExifInterface(filepath);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+        if (exif != null) {
+            int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, -1);
+            if (orientation != -1) {
+                switch (orientation) {
+                    case ExifInterface.ORIENTATION_ROTATE_90:
+                        degree = 90;
+                        break;
+                    case ExifInterface.ORIENTATION_ROTATE_180:
+                        degree = 180;
+                        break;
+                    case ExifInterface.ORIENTATION_ROTATE_270:
+                        degree = 270;
+                        break;
+                }
+
+            }
+        }
+        return degree;
+    }
+
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
@@ -212,7 +249,6 @@ public class ClipViewLayout extends RelativeLayout {
                 break;
             case MotionEvent.ACTION_MOVE:
                 if (mode == DRAG) { //拖动
-                    Log.i("android", "DRAG-------------------");
                     matrix.set(savedMatrix);
                     float dx = event.getX() - start.x;
                     float dy = event.getY() - start.y;
@@ -221,8 +257,6 @@ public class ClipViewLayout extends RelativeLayout {
                     //检查边界
                     checkBorder();
                 } else if (mode == ZOOM) { //缩放
-                    Log.i("android", "ZOOM-------mini scale: " + minScale);
-                    Log.i("android", "ZOOM-------1 getScale() " + getScale());
                     //缩放后两手指间的距离
                     float newDist = spacing(event);
                     if (newDist > 10f) {
@@ -233,15 +267,12 @@ public class ClipViewLayout extends RelativeLayout {
                                 matrix.set(savedMatrix);
                                 mVerticalPadding = clipView.getClipRect().top;
                                 matrix.postScale(scale, scale, mid.x, mid.y);
-                                Log.i("android", "ZOOM-------2 getScale() " + getScale());
                                 //缩放到最小范围下面去了，则返回到最小范围大小
                                 while (getScale() < minScale) {
                                     //返回到最小范围的放大比例
                                     scale = 1 + 0.01F;
                                     matrix.postScale(scale, scale, mid.x, mid.y);
-                                    Log.i("android", "ZOOM-------3 getScale() " + getScale());
                                 }
-                                Log.i("android", "ZOOM-------scale: " + scale);
                             }
                             //边界检查
                             checkBorder();
@@ -299,7 +330,6 @@ public class ClipViewLayout extends RelativeLayout {
                 deltaY = height - mVerticalPadding - rect.bottom;
             }
         }
-        Log.i("android", "check border translate deltaX: " + deltaX + ", deltaY: " + deltaY);
         matrix.postTranslate(deltaX, deltaY);
     }
 
@@ -342,7 +372,7 @@ public class ClipViewLayout extends RelativeLayout {
         Bitmap zoomedCropBitmap = null;
         try {
             cropBitmap = Bitmap.createBitmap(imageView.getDrawingCache(), rect.left, rect.top, rect.width(), rect.height());
-            zoomedCropBitmap = BitmapUtil.zoomBitmap(cropBitmap, 200, 200);
+            zoomedCropBitmap = zoomBitmap(cropBitmap, 200, 200);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -352,6 +382,122 @@ public class ClipViewLayout extends RelativeLayout {
         // 释放资源
         imageView.destroyDrawingCache();
         return zoomedCropBitmap;
+    }
+
+
+
+    /**
+     * 图片等比例压缩
+     *
+     * @param filePath
+     * @param reqWidth  期望的宽
+     * @param reqHeight 期望的高
+     * @return
+     */
+    public static Bitmap decodeSampledBitmap(String filePath, int reqWidth,
+                                             int reqHeight) {
+
+        // First decode with inJustDecodeBounds=true to check dimensions
+        final BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(filePath, options);
+
+        // Calculate inSampleSize
+        options.inSampleSize = calculateInSampleSize(options, reqWidth,
+                reqHeight);
+
+        // Decode bitmap with inSampleSize set
+        options.inJustDecodeBounds = false;
+        return BitmapFactory.decodeFile(filePath, options);
+    }
+
+    /**
+     * 计算InSampleSize
+     * 宽的压缩比和高的压缩比的较小值  取接近的2的次幂的值
+     * 比如宽的压缩比是3 高的压缩比是5 取较小值3  而InSampleSize必须是2的次幂，取接近的2的次幂4
+     *
+     * @param options
+     * @param reqWidth
+     * @param reqHeight
+     * @return
+     */
+    public static int calculateInSampleSize(BitmapFactory.Options options,
+                                            int reqWidth, int reqHeight) {
+        // Raw height and width of image
+        final int height = options.outHeight;
+        final int width = options.outWidth;
+        int inSampleSize = 1;
+
+        if (height > reqHeight || width > reqWidth) {
+
+            // Calculate ratios of height and width to requested height and
+            // width
+            final int heightRatio = Math.round((float) height
+                    / (float) reqHeight);
+            final int widthRatio = Math.round((float) width / (float) reqWidth);
+
+            // Choose the smallest ratio as inSampleSize value, this will
+            // guarantee
+            // a final image with both dimensions larger than or equal to the
+            // requested height and width.
+            int ratio = heightRatio < widthRatio ? heightRatio : widthRatio;
+            // inSampleSize只能是2的次幂  将ratio就近取2的次幂的值
+            if (ratio < 3)
+                inSampleSize = ratio;
+            else if (ratio < 6.5)
+                inSampleSize = 4;
+            else if (ratio < 8)
+                inSampleSize = 8;
+            else
+                inSampleSize = ratio;
+        }
+
+        return inSampleSize;
+    }
+
+    /**
+     * 图片缩放到指定宽高
+     * <p/>
+     * 非等比例压缩，图片会被拉伸
+     *
+     * @param bitmap 源位图对象
+     * @param w      要缩放的宽度
+     * @param h      要缩放的高度
+     * @return 新Bitmap对象
+     */
+    public static Bitmap zoomBitmap(Bitmap bitmap, int w, int h) {
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        Matrix matrix = new Matrix();
+        float scaleWidth = ((float) w / width);
+        float scaleHeight = ((float) h / height);
+        matrix.postScale(scaleWidth, scaleHeight);
+        Bitmap newBmp = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, false);
+        return newBmp;
+    }
+
+
+    public static String getRealFilePathFromUri(final Context context, final Uri uri) {
+        if (null == uri) return null;
+        final String scheme = uri.getScheme();
+        String data = null;
+        if (scheme == null)
+            data = uri.getPath();
+        else if (ContentResolver.SCHEME_FILE.equals(scheme)) {
+            data = uri.getPath();
+        } else if (ContentResolver.SCHEME_CONTENT.equals(scheme)) {
+            Cursor cursor = context.getContentResolver().query(uri, new String[]{MediaStore.Images.ImageColumns.DATA}, null, null, null);
+            if (null != cursor) {
+                if (cursor.moveToFirst()) {
+                    int index = cursor.getColumnIndex(MediaStore.Images.ImageColumns.DATA);
+                    if (index > -1) {
+                        data = cursor.getString(index);
+                    }
+                }
+                cursor.close();
+            }
+        }
+        return data;
     }
 
 

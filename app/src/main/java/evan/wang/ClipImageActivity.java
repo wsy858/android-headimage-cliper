@@ -1,4 +1,4 @@
-package evan.wang.demo;
+package evan.wang;
 
 import android.content.Intent;
 import android.graphics.Bitmap;
@@ -14,7 +14,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 
-import evan.wang.R;
 import evan.wang.view.ClipViewLayout;
 
 /**
@@ -26,7 +25,7 @@ public class ClipImageActivity extends AppCompatActivity implements View.OnClick
     private ImageView back;
     private TextView btnCancel;
     private TextView btnOk;
-    // 1: qq, 2: weixin
+    //类别 1: qq, 2: weixin
     private int type;
 
     @Override
@@ -34,7 +33,6 @@ public class ClipImageActivity extends AppCompatActivity implements View.OnClick
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_clip_image);
         type = getIntent().getIntExtra("type", 1);
-        Log.i("android", "type: " + type);
         initView();
     }
 

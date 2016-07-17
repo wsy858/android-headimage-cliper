@@ -1,6 +1,9 @@
-package evan.wang.demo;
+package evan.wang;
 
+import android.content.ContentResolver;
+import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -10,23 +13,19 @@ import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.ImageView;
+import android.widget.PopupWindow;
 import android.widget.RelativeLayout;
-import android.widget.SimpleAdapter;
-
-import com.orhanobut.dialogplus.DialogPlus;
-import com.orhanobut.dialogplus.OnItemClickListener;
+import android.widget.TextView;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
-import de.hdodenhof.circleimageview.CircleImageView;
-import evan.wang.R;
-import evan.wang.utils.FileUtil;
+import evan.wang.view.CircleImageView;
+
 
 /**
  * 主界面
@@ -38,8 +37,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private static final int REQUEST_PICK = 101;
     //请求截图
     private static final int REQUEST_CROP_PHOTO = 102;
-    private RelativeLayout qqLayout;
-    private RelativeLayout weixinLayout;
     //头像1
     private CircleImageView headImage1;
     //头像2
@@ -54,11 +51,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        createHeadImageTempFile(savedInstanceState);
+        createCameraTempFile(savedInstanceState);
         headImage1 = (CircleImageView) findViewById(R.id.head_image1);
         headImage2 = (ImageView) findViewById(R.id.head_image2);
-        qqLayout = (RelativeLayout) findViewById(R.id.qqLayout);
-        weixinLayout = (RelativeLayout) findViewById(R.id.weixinLayout);
+        RelativeLayout qqLayout = (RelativeLayout) findViewById(R.id.qqLayout);
+        RelativeLayout weixinLayout = (RelativeLayout) findViewById(R.id.weixinLayout);
         qqLayout.setOnClickListener(this);
         weixinLayout.setOnClickListener(this);
     }
@@ -82,40 +79,52 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
      * 上传头像
      */
     private void uploadHeadImage() {
-        String[] titles = {"拍照", "从相册中选取", "取消"};
-        List<Map<String, String>> datas = new ArrayList<>();
-        for (int i = 0; i < titles.length; i++) {
-            Map<String, String> itemData = new HashMap<>();
-            itemData.put("name", titles[i]);
-            datas.add(itemData);
-        }
-        SimpleAdapter adapter = new SimpleAdapter(this, datas, R.layout.simple_text_list_item,
-                new String[]{"name"}, new int[]{R.id.simple_text_name});
-        DialogPlus dialogPlus = DialogPlus.newDialog(this)
-                .setAdapter(adapter)
-                .setGravity(Gravity.BOTTOM)
-                .setOnItemClickListener(new OnItemClickListener() {
-                    @Override
-                    public void onItemClick(DialogPlus dialog, Object item, View view, int position) {
-                        if (dialog.isShowing()) {
-                            dialog.dismiss();
-                        }
-                        Intent intent;
-                        switch (position) {
-                            case 0:
-                                intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                                intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(tempFile));
-                                startActivityForResult(intent, REQUEST_CAPTURE);
-                                break;
-                            case 1:
-                                intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-                                startActivityForResult(Intent.createChooser(intent, "请选择图片"), REQUEST_PICK);
-                                break;
-                        }
-                    }
-                })
-                .create();
-        dialogPlus.show();
+        View view = LayoutInflater.from(this).inflate(R.layout.layout_popupwindow, null);
+        TextView btnCarema = (TextView) view.findViewById(R.id.btn_camera);
+        TextView btnPhoto = (TextView) view.findViewById(R.id.btn_photo);
+        TextView btnCancel = (TextView) view.findViewById(R.id.btn_cancel);
+        final PopupWindow popupWindow = new PopupWindow(view, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        popupWindow.setBackgroundDrawable(getResources().getDrawable(android.R.color.transparent));
+        popupWindow.setOutsideTouchable(true);
+        View parent = LayoutInflater.from(this).inflate(R.layout.activity_main, null);
+        popupWindow.showAtLocation(parent, Gravity.BOTTOM, 0, 0);
+        //popupWindow在弹窗的时候背景半透明
+        final WindowManager.LayoutParams params = getWindow().getAttributes();
+        params.alpha = 0.5f;
+        getWindow().setAttributes(params);
+        popupWindow.setOnDismissListener(new PopupWindow.OnDismissListener() {
+            @Override
+            public void onDismiss() {
+                params.alpha = 1.0f;
+                getWindow().setAttributes(params);
+            }
+        });
+
+        btnCarema.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                //跳转到调用系统相机
+                Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(tempFile));
+                startActivityForResult(intent, REQUEST_CAPTURE);
+                popupWindow.dismiss();
+            }
+        });
+        btnPhoto.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                //跳转到调用系统图库
+                Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                startActivityForResult(Intent.createChooser(intent, "请选择图片"), REQUEST_PICK);
+                popupWindow.dismiss();
+            }
+        });
+        btnCancel.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                popupWindow.dismiss();
+            }
+        });
     }
 
     /**
@@ -123,7 +132,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
      *
      * @param savedInstanceState
      */
-    private void createHeadImageTempFile(Bundle savedInstanceState) {
+    private void createCameraTempFile(Bundle savedInstanceState) {
         if (savedInstanceState != null && savedInstanceState.containsKey("tempFile")) {
             tempFile = (File) savedInstanceState.getSerializable("tempFile");
         } else {
@@ -173,7 +182,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     if (uri == null) {
                         return;
                     }
-                    String cropImagePath = FileUtil.getRealFilePathFromUri(getApplicationContext(), uri);
+                    String cropImagePath = getRealFilePathFromUri(getApplicationContext(), uri);
                     Bitmap bitMap = BitmapFactory.decodeFile(cropImagePath);
                     if (type == 1) {
                         headImage1.setImageBitmap(bitMap);
@@ -203,6 +212,37 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         intent.putExtra("type", type);
         intent.setData(uri);
         startActivityForResult(intent, REQUEST_CROP_PHOTO);
+    }
+
+
+    /**
+     * Try to return the absolute file path from the given Uri  兼容了file:///开头的 和 content://开头的情况
+     *
+     * @param context
+     * @param uri
+     * @return the file path or null
+     */
+    public static String getRealFilePathFromUri(final Context context, final Uri uri) {
+        if (null == uri) return null;
+        final String scheme = uri.getScheme();
+        String data = null;
+        if (scheme == null)
+            data = uri.getPath();
+        else if (ContentResolver.SCHEME_FILE.equals(scheme)) {
+            data = uri.getPath();
+        } else if (ContentResolver.SCHEME_CONTENT.equals(scheme)) {
+            Cursor cursor = context.getContentResolver().query(uri, new String[]{MediaStore.Images.ImageColumns.DATA}, null, null, null);
+            if (null != cursor) {
+                if (cursor.moveToFirst()) {
+                    int index = cursor.getColumnIndex(MediaStore.Images.ImageColumns.DATA);
+                    if (index > -1) {
+                        data = cursor.getString(index);
+                    }
+                }
+                cursor.close();
+            }
+        }
+        return data;
     }
 
 

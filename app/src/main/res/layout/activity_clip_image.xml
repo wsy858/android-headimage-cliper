@@ -30,7 +30,11 @@
 
     </RelativeLayout>
 
-
+    <!--圆形裁剪框示例
+        app:clipBorderWidth="5dp"     ： 裁剪框边框宽度
+        app:clipType="circle"         ： 裁剪框类型为圆形
+        app:mHorizontalPadding="30dp" ：裁剪框距离左右边距为30dp
+     -->
     <evan.wang.view.ClipViewLayout
         android:id="@+id/clipViewLayout1"
         android:layout_width="match_parent"
@@ -40,6 +44,7 @@
         app:clipType="circle"
         app:mHorizontalPadding="30dp" />
 
+    <!--矩形裁剪框示例 -->
     <evan.wang.view.ClipViewLayout
         android:id="@+id/clipViewLayout2"
         android:layout_width="match_parent"
