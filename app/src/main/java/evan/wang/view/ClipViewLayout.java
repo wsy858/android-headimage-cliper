@@ -385,7 +385,6 @@ public class ClipViewLayout extends RelativeLayout {
     }
 
 
-
     /**
      * 图片等比例压缩
      *
@@ -400,7 +399,9 @@ public class ClipViewLayout extends RelativeLayout {
         // First decode with inJustDecodeBounds=true to check dimensions
         final BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = true;
-        BitmapFactory.decodeFile(filePath, options);
+        options.inPreferredConfig = Bitmap.Config.RGB_565;
+        //bitmap is null
+        Bitmap bitmap = BitmapFactory.decodeFile(filePath, options);
 
         // Calculate inSampleSize
         options.inSampleSize = calculateInSampleSize(options, reqWidth,

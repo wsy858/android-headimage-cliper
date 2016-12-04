@@ -1,8 +1,10 @@
 package evan.wang;
 
+import android.Manifest;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -10,6 +12,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -37,6 +41,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private static final int REQUEST_PICK = 101;
     //请求截图
     private static final int REQUEST_CROP_PHOTO = 102;
+    //请求访问外部存储
+    private static final int READ_EXTERNAL_STORAGE_REQUEST_CODE = 103;
+    //请求写入外部存储
+    private static final int WRITE_EXTERNAL_STORAGE_REQUEST_CODE = 104;
     //头像1
     private CircleImageView headImage1;
     //头像2
@@ -51,14 +59,44 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        createCameraTempFile(savedInstanceState);
         headImage1 = (CircleImageView) findViewById(R.id.head_image1);
         headImage2 = (ImageView) findViewById(R.id.head_image2);
         RelativeLayout qqLayout = (RelativeLayout) findViewById(R.id.qqLayout);
         RelativeLayout weixinLayout = (RelativeLayout) findViewById(R.id.weixinLayout);
         qqLayout.setOnClickListener(this);
         weixinLayout.setOnClickListener(this);
+        //创建拍照存储的临时文件
+        createCameraTempFile(savedInstanceState);
     }
+
+
+    /**
+     * 外部存储权限申请返回
+     *
+     * @param requestCode
+     * @param permissions
+     * @param grantResults
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == WRITE_EXTERNAL_STORAGE_REQUEST_CODE) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission Granted
+                gotoCarema();
+            } else {
+                // Permission Denied
+            }
+        } else if (requestCode == READ_EXTERNAL_STORAGE_REQUEST_CODE) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission Granted
+                gotoPhoto();
+            } else {
+                // Permission Denied
+            }
+        }
+    }
+
 
     @Override
     public void onClick(View v) {
@@ -103,19 +141,32 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         btnCarema.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //跳转到调用系统相机
-                Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-                intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(tempFile));
-                startActivityForResult(intent, REQUEST_CAPTURE);
+                //权限判断
+                if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    //申请WRITE_EXTERNAL_STORAGE权限
+                    ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                            WRITE_EXTERNAL_STORAGE_REQUEST_CODE);
+                } else {
+                    //跳转到调用系统相机
+                    gotoCarema();
+                }
                 popupWindow.dismiss();
             }
         });
         btnPhoto.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //跳转到调用系统图库
-                Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-                startActivityForResult(Intent.createChooser(intent, "请选择图片"), REQUEST_PICK);
+                //权限判断
+                if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    //申请READ_EXTERNAL_STORAGE权限
+                    ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
+                            READ_EXTERNAL_STORAGE_REQUEST_CODE);
+                } else {
+                    //跳转到调用系统图库
+                    gotoPhoto();
+                }
                 popupWindow.dismiss();
             }
         });
@@ -125,6 +176,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 popupWindow.dismiss();
             }
         });
+    }
+
+    /**
+     * 跳转到相册
+     */
+    private void gotoPhoto() {
+        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        startActivityForResult(Intent.createChooser(intent, "请选择图片"), REQUEST_PICK);
+    }
+
+
+    /**
+     * 跳转到照相机
+     */
+    private void gotoCarema() {
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(tempFile));
+        startActivityForResult(intent, REQUEST_CAPTURE);
     }
 
     /**
@@ -216,7 +285,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
     /**
-     * Try to return the absolute file path from the given Uri  兼容了file:///开头的 和 content://开头的情况
+     * 根据Uri返回文件绝对路径
+     * 兼容了file:///开头的 和 content://开头的情况
      *
      * @param context
      * @param uri

@@ -20,6 +20,7 @@ import evan.wang.view.ClipViewLayout;
  * 头像裁剪Activity
  */
 public class ClipImageActivity extends AppCompatActivity implements View.OnClickListener {
+    private static final String TAG = "ClipImageActivity";
     private ClipViewLayout clipViewLayout1;
     private ClipViewLayout clipViewLayout2;
     private ImageView back;
@@ -54,6 +55,7 @@ public class ClipImageActivity extends AppCompatActivity implements View.OnClick
     @Override
     protected void onResume() {
         super.onResume();
+        Log.i(TAG, "image uri: "+getIntent().getData());
         if (type == 1) {
             clipViewLayout1.setVisibility(View.VISIBLE);
             clipViewLayout2.setVisibility(View.GONE);
