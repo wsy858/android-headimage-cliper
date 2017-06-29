@@ -73,34 +73,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
-    /**
-     * 外部存储权限申请返回
-     *
-     * @param requestCode
-     * @param permissions
-     * @param grantResults
-     */
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == WRITE_EXTERNAL_STORAGE_REQUEST_CODE) {
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission Granted
-                gotoCarema();
-            } else {
-                // Permission Denied
-            }
-        } else if (requestCode == READ_EXTERNAL_STORAGE_REQUEST_CODE) {
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission Granted
-                gotoPhoto();
-            } else {
-                // Permission Denied
-            }
-        }
-    }
-
-
     @Override
     public void onClick(View v) {
         switch (v.getId()) {
@@ -144,16 +116,32 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         btnCarema.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //跳转到调用系统相机
-                gotoCarema();
+                //权限判断
+                if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    //申请WRITE_EXTERNAL_STORAGE权限
+                    ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                            WRITE_EXTERNAL_STORAGE_REQUEST_CODE);
+                } else {
+                    //跳转到调用系统相机
+                    gotoCamera();
+                }
                 popupWindow.dismiss();
             }
         });
         btnPhoto.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //跳转到相册
-                gotoPhoto();
+                //权限判断
+                if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                        != PackageManager.PERMISSION_GRANTED) {
+                    //申请READ_EXTERNAL_STORAGE权限
+                    ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
+                            READ_EXTERNAL_STORAGE_REQUEST_CODE);
+                } else {
+                    //跳转到相册
+                    gotoPhoto();
+                }
                 popupWindow.dismiss();
             }
         });
@@ -165,55 +153,58 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         });
     }
 
+
+    /**
+     * 外部存储权限申请返回
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == WRITE_EXTERNAL_STORAGE_REQUEST_CODE) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission Granted
+                gotoCamera();
+            }
+        } else if (requestCode == READ_EXTERNAL_STORAGE_REQUEST_CODE) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission Granted
+                gotoPhoto();
+            }
+        }
+    }
+
+
     /**
      * 跳转到相册
      */
     private void gotoPhoto() {
-        //权限判断
-        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-            //申请READ_EXTERNAL_STORAGE权限
-            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-                    READ_EXTERNAL_STORAGE_REQUEST_CODE);
-        } else {
-            Log.d("evan", "*****************打开图库********************");
-            //跳转到调用系统图库
-            Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
-            startActivityForResult(Intent.createChooser(intent, "请选择图片"), REQUEST_PICK);
-        }
+        Log.d("evan", "*****************打开图库********************");
+        //跳转到调用系统图库
+        Intent intent = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        startActivityForResult(Intent.createChooser(intent, "请选择图片"), REQUEST_PICK);
     }
 
 
     /**
      * 跳转到照相机
      */
-    private void gotoCarema() {
-        //权限判断
-        if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-            //申请WRITE_EXTERNAL_STORAGE权限
-            ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                    WRITE_EXTERNAL_STORAGE_REQUEST_CODE);
+    private void gotoCamera() {
+        Log.d("evan", "*****************打开相机********************");
+        //跳转到调用系统相机
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            //设置7.0中共享文件，分享路径定义在xml/file_paths.xml
+            intent.setFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            Uri contentUri = FileProvider.getUriForFile(MainActivity.this, BuildConfig.APPLICATION_ID + ".fileProvider", tempFile);
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, contentUri);
         } else {
-            Log.d("evan", "*****************打开相机********************");
-            //跳转到调用系统相机
-            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                //设置7.0中共享文件，分享路径定义在xml/file_paths.xml
-                intent.setFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-                Uri contentUri = FileProvider.getUriForFile(MainActivity.this, BuildConfig.APPLICATION_ID + ".fileProvider", tempFile);
-                intent.putExtra(MediaStore.EXTRA_OUTPUT, contentUri);
-            } else {
-                intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(tempFile));
-            }
-            startActivityForResult(intent, REQUEST_CAPTURE);
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(tempFile));
         }
+        startActivityForResult(intent, REQUEST_CAPTURE);
     }
 
     /**
      * 创建调用系统照相机待存储的临时文件
-     *
-     * @param savedInstanceState
      */
     private void createCameraTempFile(Bundle savedInstanceState) {
         if (savedInstanceState != null && savedInstanceState.containsKey("tempFile")) {
@@ -286,8 +277,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     /**
      * 打开截图界面
-     *
-     * @param uri
      */
     public void gotoClipActivity(Uri uri) {
         if (uri == null) {
@@ -304,10 +293,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     /**
      * 根据Uri返回文件绝对路径
      * 兼容了file:///开头的 和 content://开头的情况
-     *
-     * @param context
-     * @param uri
-     * @return the file path or null
      */
     public static String getRealFilePathFromUri(final Context context, final Uri uri) {
         if (null == uri) return null;
