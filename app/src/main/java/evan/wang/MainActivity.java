@@ -52,7 +52,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private CircleImageView headImage1;
     //头像2
     private ImageView headImage2;
-    //调用照相机返回图片临时文件
+    //调用照相机返回图片文件
     private File tempFile;
     // 1: qq, 2: weixin
     private int type;
@@ -68,8 +68,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         RelativeLayout weixinLayout = (RelativeLayout) findViewById(R.id.weixinLayout);
         qqLayout.setOnClickListener(this);
         weixinLayout.setOnClickListener(this);
-        //创建拍照存储的临时文件
-        createCameraTempFile(savedInstanceState);
     }
 
 
@@ -190,6 +188,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
      */
     private void gotoCamera() {
         Log.d("evan", "*****************打开相机********************");
+        //创建拍照存储的图片文件
+        tempFile = new File(checkDirPath(Environment.getExternalStorageDirectory().getPath() + "/image/"), System.currentTimeMillis() + ".jpg");
+
         //跳转到调用系统相机
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
@@ -203,17 +204,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         startActivityForResult(intent, REQUEST_CAPTURE);
     }
 
-    /**
-     * 创建调用系统照相机待存储的临时文件
-     */
-    private void createCameraTempFile(Bundle savedInstanceState) {
-        if (savedInstanceState != null && savedInstanceState.containsKey("tempFile")) {
-            tempFile = (File) savedInstanceState.getSerializable("tempFile");
-        } else {
-            tempFile = new File(checkDirPath(Environment.getExternalStorageDirectory().getPath() + "/image/"),
-                    System.currentTimeMillis() + ".jpg");
-        }
-    }
 
     /**
      * 检查文件是否存在
@@ -227,12 +217,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             dir.mkdirs();
         }
         return dirPath;
-    }
-
-    @Override
-    protected void onSaveInstanceState(Bundle outState) {
-        super.onSaveInstanceState(outState);
-        outState.putSerializable("tempFile", tempFile);
     }
 
 
