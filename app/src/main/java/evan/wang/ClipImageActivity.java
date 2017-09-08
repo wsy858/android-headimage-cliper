@@ -55,7 +55,6 @@ public class ClipImageActivity extends AppCompatActivity implements View.OnClick
     @Override
     protected void onResume() {
         super.onResume();
-        Log.i(TAG, "image uri: "+getIntent().getData());
         if (type == 1) {
             clipViewLayout1.setVisibility(View.VISIBLE);
             clipViewLayout2.setVisibility(View.GONE);

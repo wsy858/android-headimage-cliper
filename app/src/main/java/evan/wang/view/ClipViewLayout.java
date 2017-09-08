@@ -1,9 +1,7 @@
 package evan.wang.view;
 
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.res.TypedArray;
-import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -13,9 +11,9 @@ import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.media.ExifInterface;
 import android.net.Uri;
-import android.provider.MediaStore;
 import android.text.TextUtils;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.MotionEvent;
 import android.view.ViewTreeObserver;
@@ -25,6 +23,8 @@ import android.widget.RelativeLayout;
 import java.io.IOException;
 
 import evan.wang.R;
+
+import static evan.wang.util.FileUtil.getRealFilePathFromUri;
 
 /**
  * 头像上传原图裁剪容器
@@ -131,14 +131,14 @@ public class ClipViewLayout extends RelativeLayout {
         if (uri == null) {
             return;
         }
-
+        Log.d("evan", "**********clip_view uri*******  " + uri);
         String path = getRealFilePathFromUri(getContext(), uri);
+        Log.d("evan", "**********clip_view path*******  " + path);
         if (TextUtils.isEmpty(path)) {
             return;
         }
 
-        //原图可能很大，现在手机照出来都3000*2000左右了，直接加载可能会OOM
-        //这里decode出720*1280 左右的照片
+        //这里decode出720*1280 左右的照片,防止OOM
         Bitmap bitmap = decodeSampledBitmap(path, 720, 1280);
         if (bitmap == null) {
             return;
@@ -191,9 +191,6 @@ public class ClipViewLayout extends RelativeLayout {
 
     /**
      * 查询图片旋转角度
-     *
-     * @param filepath
-     * @return
      */
     public static int getExifOrientation(String filepath) {// YOUR MEDIA PATH AS STRING
         int degree = 0;
@@ -475,30 +472,6 @@ public class ClipViewLayout extends RelativeLayout {
         matrix.postScale(scaleWidth, scaleHeight);
         Bitmap newBmp = Bitmap.createBitmap(bitmap, 0, 0, width, height, matrix, false);
         return newBmp;
-    }
-
-
-    public static String getRealFilePathFromUri(final Context context, final Uri uri) {
-        if (null == uri) return null;
-        final String scheme = uri.getScheme();
-        String data = null;
-        if (scheme == null)
-            data = uri.getPath();
-        else if (ContentResolver.SCHEME_FILE.equals(scheme)) {
-            data = uri.getPath();
-        } else if (ContentResolver.SCHEME_CONTENT.equals(scheme)) {
-            Cursor cursor = context.getContentResolver().query(uri, new String[]{MediaStore.Images.ImageColumns.DATA}, null, null, null);
-            if (null != cursor) {
-                if (cursor.moveToFirst()) {
-                    int index = cursor.getColumnIndex(MediaStore.Images.ImageColumns.DATA);
-                    if (index > -1) {
-                        data = cursor.getString(index);
-                    }
-                }
-                cursor.close();
-            }
-        }
-        return data;
     }
 
 

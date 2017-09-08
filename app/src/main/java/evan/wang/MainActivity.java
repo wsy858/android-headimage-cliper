@@ -1,11 +1,8 @@
 package evan.wang;
 
 import android.Manifest;
-import android.content.ContentResolver;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
@@ -17,7 +14,6 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -31,7 +27,10 @@ import android.widget.TextView;
 
 import java.io.File;
 
+import evan.wang.util.FileUtil;
 import evan.wang.view.CircleImageView;
+
+import static evan.wang.util.FileUtil.getRealFilePathFromUri;
 
 
 /**
@@ -189,7 +188,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void gotoCamera() {
         Log.d("evan", "*****************打开相机********************");
         //创建拍照存储的图片文件
-        tempFile = new File(checkDirPath(Environment.getExternalStorageDirectory().getPath() + "/image/"), System.currentTimeMillis() + ".jpg");
+        tempFile = new File(FileUtil.checkDirPath(Environment.getExternalStorageDirectory().getPath() + "/image/"), System.currentTimeMillis() + ".jpg");
 
         //跳转到调用系统相机
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
@@ -205,35 +204,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
-    /**
-     * 检查文件是否存在
-     */
-    private static String checkDirPath(String dirPath) {
-        if (TextUtils.isEmpty(dirPath)) {
-            return "";
-        }
-        File dir = new File(dirPath);
-        if (!dir.exists()) {
-            dir.mkdirs();
-        }
-        return dirPath;
-    }
-
-
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent intent) {
         switch (requestCode) {
             case REQUEST_CAPTURE: //调用系统相机返回
                 if (resultCode == RESULT_OK) {
-                    Log.d("evan", "**********camera uri*******" + Uri.fromFile(tempFile).toString());
-                    Log.d("evan", "**********camera path*******" + getRealFilePathFromUri(MainActivity.this, Uri.fromFile(tempFile)));
                     gotoClipActivity(Uri.fromFile(tempFile));
                 }
                 break;
             case REQUEST_PICK:  //调用系统相册返回
                 if (resultCode == RESULT_OK) {
                     Uri uri = intent.getData();
-                    Log.d("evan", "**********pick path*******" + getRealFilePathFromUri(MainActivity.this, uri));
                     gotoClipActivity(uri);
                 }
                 break;
@@ -274,32 +255,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
-    /**
-     * 根据Uri返回文件绝对路径
-     * 兼容了file:///开头的 和 content://开头的情况
-     */
-    public static String getRealFilePathFromUri(final Context context, final Uri uri) {
-        if (null == uri) return null;
-        final String scheme = uri.getScheme();
-        String data = null;
-        if (scheme == null)
-            data = uri.getPath();
-        else if (ContentResolver.SCHEME_FILE.equals(scheme)) {
-            data = uri.getPath();
-        } else if (ContentResolver.SCHEME_CONTENT.equals(scheme)) {
-            Cursor cursor = context.getContentResolver().query(uri, new String[]{MediaStore.Images.ImageColumns.DATA}, null, null, null);
-            if (null != cursor) {
-                if (cursor.moveToFirst()) {
-                    int index = cursor.getColumnIndex(MediaStore.Images.ImageColumns.DATA);
-                    if (index > -1) {
-                        data = cursor.getString(index);
-                    }
-                }
-                cursor.close();
-            }
-        }
-        return data;
-    }
+
 
 
 }
